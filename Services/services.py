@@ -3,12 +3,12 @@ from .models import Service
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from Users.customauth import CustomAuthentication
 from rest_framework.permissions import IsAuthenticated
 
 class ServiceCreationApi(APIView):
     
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CustomAuthentication]
     permission_classes = [IsAuthenticated]
     
     class ServiceCreationSerializer(ModelSerializer):
@@ -32,7 +32,7 @@ class ServiceCreationApi(APIView):
 
 class ServiceUpdationApi(APIView):
     
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CustomAuthentication]
     permission_classes = [IsAuthenticated]
     
     class ServiceCreationSerializer(ModelSerializer):
