@@ -1,55 +1,58 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
+from cryptography.fernet import Fernet
+from hashlib import sha256
 from .customauth import CustomAuthentication
 import jwt
-from datetime import datetime, timedelta
 User = get_user_model()
 
 
+
+#Generating JWT token for user
 def generate_token(user):
-        payload = {
-            "id": (user.uuid).hex,
-            "exp": datetime.now() + timedelta(hours=1),
-            "iat": datetime.now()
-        }
+    
+    payload = {
+        "id": (user.uuid).hex
+    }
 
-        token = jwt.encode(payload, 'pass_secret',
-                           algorithm="HS256")
-        
-        return token
+    token = jwt.encode(payload, 'pass_secret',
+                        algorithm="HS256")
+    
+    return token
 
+
+#User Creation API
 class UserCreationApi(APIView):
 
-    class UserCheckSerializer(ModelSerializer):
+    class UserCheckSerializer(serializers.ModelSerializer):
         class Meta:
             model = User
-            exclude = ['uuid']
+            exclude = ['uuid','decryption_key']
+    
+    #Generating a key for user to access his/her passwords      
+    def generate_key(self):
+        key = Fernet.generate_key()
+        return key.decode('utf-8')
+    
+    
+    #Hashing the password to store to the server
+    def generate_hash(self, key):
+        hash = sha256(key.encode('utf-8'))
+        return hash.hexdigest()
 
     def post(self, request):
-        try:
-            username = request.data['username']
-            email = request.data['email']
-            password = request.data['password']
-            decryption_key = request.data['decryption_key']
-
-        except KeyError as exc:
-            body = {
-                'error': f'Missing Parameter: {exc}'
-            }
-            return Response(body, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            body = {
-                'error': f'{e} Occured!'
-            }
-            return Response(body, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         serializer = self.UserCheckSerializer(data=request.data)
         if serializer.is_valid():
+            username = request.data['username']
+            email = request.data['email']
+            password = request.data['password']
+            secret_key = self.generate_key()
+            decryption_key = self.generate_hash(secret_key)
             user = User.objects.create_user(username=username,
                                             email=email,
                                             password=password,
@@ -57,43 +60,36 @@ class UserCreationApi(APIView):
 
             token = generate_token(user)
 
-            return Response({"web token": token}, status=status.HTTP_201_CREATED)
+            return Response({"web token": token,
+                             'secret_key': secret_key}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserLoginApi(APIView):
+    
+    class UserCredentialSerializer(serializers.Serializer):
+        username = serializers.CharField(max_length=30)
+        password = serializers.CharField(max_length=200)
+        
+        def validate(self, data):
+            try:
+                user = User.objects.get(username=data['username'])
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'username': 'User not found with the given username.'})
+            
+            if not user.check_password(data['password']):
+                raise serializers.ValidationError({"password":"Given Password is incorrect."})
+            
+            return data
 
     def post(self, request):
-        try:
-            username = request.data['username']
-            password = request.data['password']
-
-        except KeyError as exc:
-            body = {
-                'error': f'Missing Parameter: {exc}'
-            }
-            return Response(body, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            body = {
-                'error': f'{e} Occured!'
-            }
-            return Response(body, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            body = {
-                'error': 'Username Does Not Exist!'
-            }
-            return Response(body, status=status.HTTP_404_NOT_FOUND)
-
-        if not user.check_password(password):
-            body = {
-                'error': 'Invalid Password!'
-            }
-            return Response(body, status=status.HTTP_401_UNAUTHORIZED)
+                
+        serializer = self.UserCredentialSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        user = User.objects.get(username=request.data['username'])
 
         token = generate_token(user)
 
@@ -104,27 +100,23 @@ class UserPasswordResetApi(APIView):
 
     authentication_classes = [CustomAuthentication]
     permission_classes = [IsAuthenticated]
+    
+    class PasswordResetSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = User
+            fields = ('password',)
 
     def patch(self, request):
         user = request.user
 
-        try:
+        serializer = self.PasswordResetSerializer(user, data=request.data)
+        if serializer.is_valid():
             password = request.data['password']
-        except KeyError as exc:
-            body = {
-                'error': f'Missing Parameter: {exc}'
-            }
-            return Response(body, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            body = {
-                'error': f'{e} Occured!'
-            }
-            return Response(body, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        user.set_password(password)
-        user.save()
-        return Response(status=status.HTTP_202_ACCEPTED)
+            user.set_password(password)
+            user.save()
+            return Response(status=status.HTTP_202_ACCEPTED)
+            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserDeletionApi(APIView):
@@ -139,4 +131,4 @@ class UserDeletionApi(APIView):
         body = {
             'success_message': "User Successfully Deleted"
         }
-        return Response(body, status=status.HTTP_204_NO_CONTENT)
+        return Response(body, status=status.HTTP_200_OK)

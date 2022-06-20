@@ -1,12 +1,7 @@
 from django.contrib.auth.models import BaseUserManager
-from hashlib import sha256
 
 class CustomUserManager(BaseUserManager):
-    
-    def generate_hash(self,key):
-        myhash = sha256(key.encode('ascii'))
-        return myhash.hexdigest()
-    
+        
     def create_user(self, email, username, password, decryption_key, **other_fields):
         
         if not email:
@@ -22,9 +17,8 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("Decrpytion Key Field Must Not Be Empty")
         
         email = self.normalize_email(email)
-        user = self.model(email=email, username=username, **other_fields)
+        user = self.model(email=email, username=username, decryption_key=decryption_key, **other_fields)
         user.set_password(password)
-        user.decryption_key = self.generate_hash(decryption_key)
         user.save()
         return user
     
