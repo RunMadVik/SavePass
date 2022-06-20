@@ -1,12 +1,8 @@
 from django.contrib.auth.models import BaseUserManager
-from hashlib import sha256
+from .helpers import generate_hash, generate_key
 
 class CustomUserManager(BaseUserManager):
-    
-    def generate_hash(self,key):
-        myhash = sha256(key.encode('ascii'))
-        return myhash.hexdigest()
-    
+        
     def create_user(self, email, username, password, decryption_key, **other_fields):
         
         if not email:
@@ -19,12 +15,11 @@ class CustomUserManager(BaseUserManager):
             raise ValueError("Password Field Must Not Be Empty") 
         
         if not decryption_key:
-            raise ValueError("Decrpytion Key Field Must Not Be Empty")
+            raise ValueError("Decryption Key Field Must Not Be Empty")
         
         email = self.normalize_email(email)
-        user = self.model(email=email, username=username, **other_fields)
+        user = self.model(email=email, username=username, decryption_key=decryption_key, **other_fields)
         user.set_password(password)
-        user.decryption_key = self.generate_hash(decryption_key)
         user.save()
         return user
     
@@ -32,6 +27,8 @@ class CustomUserManager(BaseUserManager):
         
         other_fields.setdefault('is_staff', True)
         other_fields.setdefault('is_superuser', True)
+        
+        decryption_key = generate_hash(generate_key())
         
         if other_fields.get('is_staff') is not True:
             raise ValueError("Staff Status must be set to True")

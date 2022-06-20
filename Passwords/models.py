@@ -15,4 +15,4 @@ class Password(models.Model):
         unique_together = [['user', 'service']]
         
     def __str__(self):
-        return str(self.user) + 's Password for ' + str(self.service)
+        return str(self.user) + "'s Password for " + str(self.service)

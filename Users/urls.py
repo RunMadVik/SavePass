@@ -1,6 +1,5 @@
 from django.urls import path
-from .services import UserCreationApi, UserLoginApi, UserPasswordResetApi, UserDeletionApi
-from .selectors import UserDetailsApi
+from .views import UserCreationApi, UserLoginApi, UserPasswordResetApi, UserDeletionApi, UserDetailsApi
 
 urlpatterns = [
     path('create/', UserCreationApi.as_view(), name='create_user'),
