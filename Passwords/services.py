@@ -42,11 +42,10 @@ class PasswordCreationApi(APIView):
         if serializer.is_valid():
             key_hash = self.get_hash(request.data['decryption_key'])
             if not key_hash == request.user.decryption_key:
-                return Response({'decryption_key': "Invalid Decryption Key"}, status = status.HTTP_406_NOT_ACCEPTABLE)
+                return Response({'decryption_key': "Invalid Decryption Key"}, status = status.HTTP_400_BAD_REQUEST)
             
             token = self.encrypt_password(request.data['password'], request.data['decryption_key'])
-            password = self.get_hash(token) 
-            Password.objects.create(user=request.user, service=service, password=password)
+            Password.objects.create(user=request.user, service=service, password=token)
             
             return Response({'status': "Service Password Stored"}, status=status.HTTP_201_CREATED)
         

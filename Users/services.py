@@ -61,7 +61,7 @@ class UserCreationApi(APIView):
             token = generate_token(user)
 
             return Response({"web token": token,
-                             'secret_key': secret_key}, status=status.HTTP_201_CREATED)
+                             'decryption_key': secret_key}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
