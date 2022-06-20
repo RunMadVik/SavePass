@@ -1,6 +1,5 @@
 from django.urls import path
-from .services import ServiceCreationApi, ServiceUpdationApi, ServiceDeletionApi
-from .selectors import ServicesViewApi
+from .views import ServiceCreationApi, ServiceUpdationApi, ServiceDeletionApi, ServicesViewApi
 
 urlpatterns = [
     path('create/', ServiceCreationApi.as_view(), name='create_service'),

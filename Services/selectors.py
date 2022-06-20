@@ -1,23 +1,9 @@
-from rest_framework.views import APIView
 from .models import Service
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.serializers import ModelSerializer
-from Users.customauth import CustomAuthentication
-from rest_framework.permissions import IsAuthenticated
 
+def get_service(pk):
+    service = Service.objects.get(pk=pk)
+    return service
 
-class ServicesViewApi(APIView):
-    
-    authentication_classes = [CustomAuthentication]
-    permission_classes = [IsAuthenticated]
-    
-    class ServiceViewSerializer(ModelSerializer):
-        class Meta:
-            model=Service
-            fields="__all__"
-            
-    def get(self, request):
-        services  = Service.objects.all()
-        serializer = self.ServiceViewSerializer(services, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+def get_all_services():
+    services = Service.objects.all()
+    return services
