@@ -8,3 +8,7 @@ def update_password(pass_obj, password):
     pass_obj.password = password
     pass_obj.save()
     return None
+
+def delete_password(pass_obj):
+    pass_obj.delete()
+    return None
