@@ -38,7 +38,10 @@ class PasswordCreationApi(APIView):
                 return Response({'decryption_key': "Invalid Decryption Key"}, status = status.HTTP_400_BAD_REQUEST)
             
             token = encrypt_password(request.data['password'], request.data['decryption_key'])
-            create_password(user=request.user, service=service, password=token)
+            result, check = create_password(user=request.user, service=service, password=token)
+            
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
             
             return Response({'status': "Service Password Stored"}, status=status.HTTP_201_CREATED)
         
@@ -104,8 +107,11 @@ class PasswordUpdationApi(APIView):
                 return Response({"error": "User does not have any password stored for this service."}, status=status.HTTP_404_NOT_FOUND)
             
             token = encrypt_password(request.data['password'], request.data['decryption_key'])
-            update_password(password_obj[0], password=token)
+            result, check = update_password(password_obj[0], password=token)
             
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                        
             return Response({"success": "Your Password has been successfully updated."}, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

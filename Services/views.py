@@ -6,12 +6,12 @@ from rest_framework import serializers
 from .services import create_service, update_service, delete_service
 from .selectors import get_service, get_all_services
 from Users.customauth import CustomAuthentication
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 
 class ServiceCreationApi(APIView):
     
     authentication_classes = [CustomAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     
     class ServiceCreationSerializer(serializers.ModelSerializer):
         class Meta:
@@ -20,12 +20,12 @@ class ServiceCreationApi(APIView):
     
     def post(self, request):
         
-        if not request.user.check_admin:
-            return Response({'user': "Not an authorized user to add a service"}, status=status.HTTP_401_UNAUTHORIZED)
-        
         serializer = self.ServiceCreationSerializer(data=request.data)
         if serializer.is_valid():
-            create_service(request.data['service_name'], request.data['service_login_url'], request.data['service_reset_password_url'])
+            result,check = create_service(request.data['service_name'], request.data['service_login_url'], request.data['service_reset_password_url'])
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -34,7 +34,7 @@ class ServiceCreationApi(APIView):
 class ServiceUpdationApi(APIView):
     
     authentication_classes = [CustomAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     
     class ServiceUpdationSerializer(serializers.ModelSerializer):
         class Meta:
@@ -42,10 +42,7 @@ class ServiceUpdationApi(APIView):
             exclude=['uuid']
 
     def put(self, request, pk):
-        
-        if not request.user.check_admin:
-           return Response({'user': "Not an authorized user to update the service"}, status=status.HTTP_401_UNAUTHORIZED)
-             
+  
         try:
             service = get_service(pk)
         except Service.DoesNotExist:
@@ -53,8 +50,11 @@ class ServiceUpdationApi(APIView):
         
         serializer = self.ServiceUpdationSerializer(service, data=request.data, partial=True)
         if serializer.is_valid():
-            service = update_service(service, request.data)
-                            
+            result, check = update_service(service, request.data)
+            
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+                
             serializer2 = self.ServiceUpdationSerializer(service)
             return Response(serializer2.data, status=status.HTTP_200_OK)
                     
@@ -63,7 +63,7 @@ class ServiceUpdationApi(APIView):
 class ServiceDeletionApi(APIView):
     
     authentication_classes = [CustomAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     
     def delete(self, request, pk):
         
@@ -91,6 +91,8 @@ class ServicesViewApi(APIView):
             fields="__all__"
             
     def get(self, request):
+        
+        #Implement Pagination
         services  = get_all_services()
         serializer = self.ServiceViewSerializer(services, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

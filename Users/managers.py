@@ -1,5 +1,6 @@
 from django.contrib.auth.models import BaseUserManager
 from .helpers import generate_hash, generate_key
+from django.core.exceptions import ValidationError
 
 class CustomUserManager(BaseUserManager):
         
@@ -20,6 +21,10 @@ class CustomUserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, username=username, decryption_key=decryption_key, **other_fields)
         user.set_password(password)
+        try:
+            user.full_clean()
+        except ValidationError as e:
+            raise ValidationError(e)
         user.save()
         return user
     

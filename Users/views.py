@@ -4,13 +4,10 @@ from rest_framework import status
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
-from cryptography.fernet import Fernet
-from hashlib import sha256
 from .customauth import CustomAuthentication
 from .services import create_user, update_user_password, delete_user
 from .selectors import get_user
 from .helpers import generate_token, generate_key, generate_hash
-import jwt
 User = get_user_model()
 
 #User Creation API
@@ -31,9 +28,12 @@ class UserCreationApi(APIView):
             password = request.data['password']
             secret_key = generate_key()
             decryption_key = generate_hash(secret_key)
-            user = create_user(username, email, password, decryption_key)
+            result, check = create_user(username, email, password, decryption_key)
             
-            token = generate_token(user)
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
+            token = generate_token(result)
 
             return Response({"web token": token,
                              'decryption_key': secret_key}, status=status.HTTP_201_CREATED)
@@ -44,6 +44,7 @@ class UserCreationApi(APIView):
 class UserLoginApi(APIView):
     
     class UserCredentialSerializer(serializers.Serializer):
+        
         username = serializers.CharField(max_length=30)
         password = serializers.CharField(max_length=200)
         
@@ -56,6 +57,7 @@ class UserLoginApi(APIView):
             if not user.check_password(data['password']):
                 raise serializers.ValidationError({"password":"Given Password is incorrect."})
             
+            data['user'] = user
             return data
 
     def post(self, request):
@@ -64,8 +66,7 @@ class UserLoginApi(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        user = get_user(request.data['username'])
-
+        user = serializer.validated_data['user']
         token = generate_token(user)
 
         return Response({"web token": token}, status=status.HTTP_202_ACCEPTED)
@@ -76,17 +77,22 @@ class UserPasswordResetApi(APIView):
     authentication_classes = [CustomAuthentication]
     permission_classes = [IsAuthenticated]
     
-    class PasswordResetSerializer(serializers.ModelSerializer):
-        class Meta:
-            model = User
-            fields = ('password',)
+    class PasswordResetSerializer(serializers.Serializer):
+        old_password = serializers.CharField(max_length=200)
+        new_password = serializers.CharField(max_length=200)
 
     def patch(self, request):
         user = request.user
 
         serializer = self.PasswordResetSerializer(user, data=request.data)
         if serializer.is_valid():
-            user = update_user_password(user, request.data['password'])
+            if not user.check_password(request.data['old_password']):
+                return Response({"error": "Old Password is incorrect."}, status=status.HTTP_406_NOT_ACCEPTABLE)
+                
+            result, check = update_user_password(user, request.data['new_password'])
+            if not check:
+                return Response(result, status=status.HTTP_400_BAD_REQUEST)
+            
             return Response({'status': "Password Updated Successfully"}, status=status.HTTP_202_ACCEPTED)
             
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
