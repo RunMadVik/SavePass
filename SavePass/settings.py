@@ -10,6 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
+"Repo Accessed From A New Device"
+
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
